@@ -8,7 +8,8 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var discoveredPeripherals: [CBPeripheral] = []
     private var scanResult: FlutterResult?
     private var connectResult: FlutterResult?
-    private var isScanning = false
+    private var isCurrentlyScanning = false // Track scanning state
+    private var scanTimer: Timer? //Scan timeout timer
     private var connected = false
 
     override init() {
@@ -22,23 +23,41 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             return
         }
 
+        // Stop any existing scan first
+        if isCurrentlyScanning {
+            stopScanInternal()
+        }
+
         scanResult = result
         discoveredPeripherals.removeAll()
         centralManager.scanForPeripherals(withServices: nil, options: nil)
-        isScanning = true
+        isCurrentlyScanning = true
 
-        // Stop scanning after 10 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
-            self.stopScan()
+        // AUTO STOP: Stop scanning after 10 seconds to prevent battery drain
+        scanTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+            self?.stopScanInternal()
+            self?.completeScan()
         }
     }
 
-    private func stopScan() {
-        guard isScanning else { return }
+    // NEW: Stop scanning method
+    func stopScan(result: @escaping FlutterResult) {
+        stopScanInternal()
+        result(true)
+    }
+
+    //Internal stop scan method
+    func stopScanInternal() {
+        guard isCurrentlyScanning else { return }
 
         centralManager?.stopScan()
-        isScanning = false
+        scanTimer?.invalidate()
+        scanTimer = nil
+        isCurrentlyScanning = false
+    }
 
+    // Complete scan and return results
+    private func completeScan() {
         if let result = scanResult {
             let devices = discoveredPeripherals.map { peripheral in
                 return [
@@ -53,7 +72,17 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
     }
 
+    // Check if scanning
+    func isScanning() -> Bool {
+        return isCurrentlyScanning
+    }
+
     func connect(address: String, result: @escaping FlutterResult) {
+        // Stop scanning before connecting
+        if isCurrentlyScanning {
+            stopScanInternal()
+        }
+
         connectResult = result
 
         for peripheral in discoveredPeripherals {
@@ -139,5 +168,10 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                 break
             }
         }
+    }
+
+    // Cleanup method
+    deinit {
+        stopScanInternal()
     }
 }

@@ -14,6 +14,15 @@ class ThermalPrinterPlatform {
     }
   }
 
+  // Stop Bluetooth scanning
+  static Future<bool> stopBluetoothScan() async {
+    try {
+      return await _channel.invokeMethod('stopBluetoothScan');
+    } on PlatformException catch (e) {
+      throw Exception('Failed to stop Bluetooth scan: ${e.message}');
+    }
+  }
+
   static Future<bool> connectBluetooth(String address) async {
     try {
       return await _channel.invokeMethod('connectBluetooth', {'address': address});
@@ -37,6 +46,15 @@ class ThermalPrinterPlatform {
       return printers.map((printer) => PrinterInfo.fromMap(Map<String, dynamic>.from(printer))).toList();
     } on PlatformException catch (e) {
       throw Exception('Failed to scan WiFi printers: ${e.message}');
+    }
+  }
+
+  // Stop WiFi scanning
+  static Future<bool> stopWifiScan() async {
+    try {
+      return await _channel.invokeMethod('stopWifiScan');
+    } on PlatformException catch (e) {
+      throw Exception('Failed to stop WiFi scan: ${e.message}');
     }
   }
 
@@ -89,6 +107,24 @@ class ThermalPrinterPlatform {
       return await _channel.invokeMethod('isConnected');
     } on PlatformException catch (e) {
       throw Exception('Failed to check connection: ${e.message}');
+    }
+  }
+
+  // Check if scanning is active
+  static Future<bool> isScanning() async {
+    try {
+      return await _channel.invokeMethod('isScanning');
+    } on PlatformException catch (e) {
+      throw Exception('Failed to check scanning status: ${e.message}');
+    }
+  }
+
+  // Stop all scanning
+  static Future<bool> stopAllScanning() async {
+    try {
+      return await _channel.invokeMethod('stopAllScanning');
+    } on PlatformException catch (e) {
+      throw Exception('Failed to stop all scanning: ${e.message}');
     }
   }
 }

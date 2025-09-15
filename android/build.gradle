@@ -1,4 +1,4 @@
-group = "com.safvan.kayakkool.flutter_thermal_printer_plus"
+group = "com.safwan.kayakkool.flutter_thermal_printer_plus"
 version = "1.0-SNAPSHOT"
 
 buildscript {
@@ -25,7 +25,7 @@ apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 android {
-    namespace = "com.safvan.kayakkool.flutter_thermal_printer_plus"
+    namespace = "com.safwan.kayakkool.flutter_thermal_printer_plus"
 
     compileSdk = 36
 

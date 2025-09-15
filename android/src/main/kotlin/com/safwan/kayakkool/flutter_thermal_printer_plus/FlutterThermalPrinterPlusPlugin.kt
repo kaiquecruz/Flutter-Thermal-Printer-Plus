@@ -7,14 +7,14 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
-class FlutterThermalPrinterPlugin: FlutterPlugin, MethodCallHandler {
+class FlutterThermalPrinterPlusPlugin: FlutterPlugin, MethodCallHandler {
     private lateinit var channel : MethodChannel
     private lateinit var bluetoothManager: BluetoothManager
     private lateinit var usbManager: UsbManager
     private lateinit var wifiManager: WifiManager
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_thermal_printer")
+        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_thermal_printer_plus")
         channel.setMethodCallHandler(this)
 
         val context = flutterPluginBinding.applicationContext

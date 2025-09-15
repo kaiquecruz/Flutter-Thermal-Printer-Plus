@@ -74,7 +74,28 @@ class PrintBuilder {
     return this;
   }
 
-  PrintBuilder row(List<String> columns, List<int> widths, {FontSize fontSize = FontSize.normal}) {
+  /// [columns] - List of column text content (can contain \n for multi-line)
+  /// [widths] - List of width percentages (must sum to 100)
+  /// [aligns] - Optional list of column alignments
+  /// [fontSize] - Font size for the entire row
+  /// [lineSpacing] - Additional spacing between multi-lines (default: 0)
+  ///
+  /// Example:
+  /// ```
+  /// builder.row(
+  ///   ['Coffee Premium\nWith Extra Foam', '2', '\$4.50', '\$9.00'],
+  ///   ,
+  ///   aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+  /// );
+  /// ```
+  PrintBuilder row(
+      List<String> columns,
+      List<int> widths, {
+        List<ColumnAlign>? aligns,
+        FontSize fontSize = FontSize.normal,
+        int lineSpacing = 0,
+      }) {
+    // Validation checks
     if (columns.length != widths.length) {
       throw ArgumentError('Columns and widths must have the same length');
     }
@@ -84,22 +105,192 @@ class PrintBuilder {
       throw ArgumentError('Total width must equal 100%');
     }
 
+    // Default alignment to left for all columns if not specified
+    List<ColumnAlign> columnAligns = aligns ?? List.filled(columns.length, ColumnAlign.left);
+
+    if (columnAligns.length != columns.length) {
+      throw ArgumentError('Aligns list length must match columns length');
+    }
+
     int maxChars = paperSize.getMaxChars(fontSize);
-    String line = '';
+
+    // Split all columns into lines and find the maximum number of lines
+    List<List<String>> columnLines = [];
+    int maxLines = 0;
+
+    for (int i = 0; i < columns.length; i++) {
+      List<String> lines = columns[i].split('\n');
+      columnLines.add(lines);
+      maxLines = maxLines > lines.length ? maxLines : lines.length;
+    }
+
+    // Process each line
+    for (int lineIndex = 0; lineIndex < maxLines; lineIndex++) {
+      String line = '';
+
+      for (int colIndex = 0; colIndex < columns.length; colIndex++) {
+        int colWidth = (maxChars * widths[colIndex] / 100).floor();
+
+        // Get the text for this line (empty if this column has fewer lines)
+        String columnText = '';
+        if (lineIndex < columnLines[colIndex].length) {
+          columnText = columnLines[colIndex][lineIndex];
+        }
+
+        // Handle text overflow
+        if (columnText.length > colWidth) {
+          if (colWidth > 2) {
+            columnText = '${columnText.substring(0, colWidth - 2)}..';
+          } else {
+            columnText = columnText.substring(0, colWidth);
+          }
+        }
+
+        // Apply column-specific alignment
+        String formattedColumn;
+        switch (columnAligns[colIndex]) {
+          case ColumnAlign.left:
+            formattedColumn = columnText.padRight(colWidth);
+            break;
+          case ColumnAlign.center:
+            int totalPadding = colWidth - columnText.length;
+            int leftPadding = totalPadding ~/ 2;
+            int rightPadding = totalPadding - leftPadding;
+            formattedColumn = '${' ' * leftPadding}$columnText${' ' * rightPadding}';
+            break;
+          case ColumnAlign.right:
+            formattedColumn = columnText.padLeft(colWidth);
+            break;
+        }
+
+        line += formattedColumn;
+      }
+
+      // Add the line
+      _bytes.addAll(utf8.encode(line));
+      _bytes.add(0x0A); // Line feed
+
+      // Add line spacing if not the last line
+      if (lineSpacing > 0 && lineIndex < maxLines - 1) {
+        for (int i = 0; i < lineSpacing; i++) {
+          _bytes.add(0x0A);
+        }
+      }
+    }
+
+    return this;
+  }
+
+  /// Enhanced row function with better multi-line control
+  /// Allows different handling for each column's multi-line behavior
+  PrintBuilder wrapRow(
+      List<String> columns,
+      List<int> widths, {
+        List<ColumnAlign>? aligns,
+        FontSize fontSize = FontSize.normal,
+        List<bool>? wrapColumns, // Which columns should wrap text vs truncate
+        int lineSpacing = 0,
+      }) {
+    // Validation checks
+    if (columns.length != widths.length) {
+      throw ArgumentError('Columns and widths must have the same length');
+    }
+
+    int totalWidth = widths.fold(0, (sum, width) => sum + width);
+    if (totalWidth != 100) {
+      throw ArgumentError('Total width must equal 100%');
+    }
+
+    List<ColumnAlign> columnAligns = aligns ?? List.filled(columns.length, ColumnAlign.left);
+    List<bool> shouldWrap = wrapColumns ?? List.filled(columns.length, true);
+
+    if (columnAligns.length != columns.length || shouldWrap.length != columns.length) {
+      throw ArgumentError('All parameter lists must match columns length');
+    }
+
+    int maxChars = paperSize.getMaxChars(fontSize);
+
+    // Process columns - wrap text if needed or split by existing newlines
+    List<List<String>> columnLines = [];
+    int maxLines = 0;
 
     for (int i = 0; i < columns.length; i++) {
       int colWidth = (maxChars * widths[i] / 100).floor();
-      String column = columns[i];
+      List<String> lines;
 
-      if (column.length > colWidth) {
-        column = '${column.substring(0, colWidth - 2)}..';
+      if (shouldWrap[i]) {
+        // Split by existing newlines first, then wrap long lines
+        List<String> initialSplit = columns[i].split('\n');
+        lines = [];
+
+        for (String line in initialSplit) {
+          if (line.length <= colWidth) {
+            lines.add(line);
+          } else {
+            // Wrap long lines
+            for (int start = 0; start < line.length; start += colWidth) {
+              int end = (start + colWidth < line.length) ? start + colWidth : line.length;
+              lines.add(line.substring(start, end));
+            }
+          }
+        }
       } else {
-        column = column.padRight(colWidth);
+        // Just split by newlines, truncate long lines
+        lines = columns[i].split('\n').map((line) {
+          if (line.length > colWidth && colWidth > 2) {
+            return '${line.substring(0, colWidth - 2)}..';
+          }
+          return line.length > colWidth ? line.substring(0, colWidth) : line;
+        }).toList();
       }
-      line += column;
+
+      columnLines.add(lines);
+      maxLines = maxLines > lines.length ? maxLines : lines.length;
     }
 
-    return text(line, fontSize: fontSize);
+    // Generate each line
+    for (int lineIndex = 0; lineIndex < maxLines; lineIndex++) {
+      String line = '';
+
+      for (int colIndex = 0; colIndex < columns.length; colIndex++) {
+        int colWidth = (maxChars * widths[colIndex] / 100).floor();
+
+        String columnText = '';
+        if (lineIndex < columnLines[colIndex].length) {
+          columnText = columnLines[colIndex][lineIndex];
+        }
+
+        // Apply alignment
+        String formattedColumn;
+        switch (columnAligns[colIndex]) {
+          case ColumnAlign.left:
+            formattedColumn = columnText.padRight(colWidth);
+            break;
+          case ColumnAlign.center:
+            int totalPadding = colWidth - columnText.length;
+            int leftPadding = totalPadding ~/ 2;
+            int rightPadding = totalPadding - leftPadding;
+            formattedColumn = '${' ' * leftPadding}$columnText${' ' * rightPadding}';
+            break;
+          case ColumnAlign.right:
+            formattedColumn = columnText.padLeft(colWidth);
+            break;
+        }
+
+        line += formattedColumn;
+      }
+
+      _bytes.addAll(utf8.encode(line));
+      _bytes.add(0x0A);
+
+      if (lineSpacing > 0 && lineIndex < maxLines - 1) {
+        for (int i = 0; i < lineSpacing; i++) {
+          _bytes.add(0x0A);
+        }
+      }
+    }
+
+    return this;
   }
 
   PrintBuilder line({String char = '-', FontSize fontSize = FontSize.normal}) {

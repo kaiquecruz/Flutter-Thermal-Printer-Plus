@@ -31,5 +31,9 @@ enum PaperSize {
 }
 
 enum FontSize { normal, compressed, doubleWidth, doubleHeight, big }
+
 enum AlignPos { left, center, right }
+
 enum ConnectionType { bluetooth, wifi, usb }
+
+enum ColumnAlign { left, center, right }

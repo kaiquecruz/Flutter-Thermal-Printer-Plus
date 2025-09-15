@@ -1,14 +1,14 @@
 import Flutter
 import UIKit
 
-public class FlutterThermalPrinterPlugin: NSObject, FlutterPlugin {
+public class FlutterThermalPrinterPlusPlugin: NSObject, FlutterPlugin {
     private let bluetoothManager = BluetoothManager()
     private let usbManager = UsbManager()
     private let wifiManager = WifiManager()
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_thermal_printer_plus", binaryMessenger: registrar.messenger())
-        let instance = FlutterThermalPrinterPlugin()
+        let instance = FlutterThermalPrinterPlusPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
 
@@ -17,6 +17,8 @@ public class FlutterThermalPrinterPlugin: NSObject, FlutterPlugin {
         // Bluetooth methods
         case "scanBluetooth":
             bluetoothManager.scanDevices(result: result)
+        case "stopBluetoothScan":
+             bluetoothManager.stopScan(result: result)
         case "connectBluetooth":
             if let args = call.arguments as? [String: Any],
                let address = args["address"] as? String {
@@ -30,6 +32,8 @@ public class FlutterThermalPrinterPlugin: NSObject, FlutterPlugin {
         // WiFi methods
         case "scanWifi":
             wifiManager.scanPrinters(result: result)
+        case "stopWifiScan":
+             wifiManager.stopScan(result: result)
         case "connectWifi":
             if let args = call.arguments as? [String: Any],
                let ip = args["ip"] as? String {
@@ -64,6 +68,10 @@ public class FlutterThermalPrinterPlugin: NSObject, FlutterPlugin {
         // Connection status
         case "isConnected":
             result(isAnyConnectionActive())
+        case "isScanning":
+            result(isAnyScanning())
+        case "stopAllScanning":
+            stopAllScanning(result: result)
 
         default:
             result(FlutterMethodNotImplemented)
@@ -86,5 +94,17 @@ public class FlutterThermalPrinterPlugin: NSObject, FlutterPlugin {
         return bluetoothManager.isConnected() ||
                wifiManager.isConnected() ||
                usbManager.isConnected()
+    }
+
+     // Check if any scanning is active
+     private func isAnyScanning() -> Bool {
+        return bluetoothManager.isScanning() || wifiManager.isScanning()
+     }
+
+     //Stop all scanning
+    private func stopAllScanning(result: @escaping FlutterResult) {
+        bluetoothManager.stopScanInternal()
+        wifiManager.stopScanInternal()
+        result(true)
     }
 }

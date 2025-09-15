@@ -1,6 +1,5 @@
 library;
 
-
 import 'package:flutter_thermal_printer_plus/platform/thermal_printer_platform.dart';
 
 import 'commands/print_builder.dart';
@@ -10,6 +9,11 @@ class FlutterThermalPrinterPlus {
   // Bluetooth operations
   static Future<List<PrinterInfo>> scanBluetoothDevices() {
     return ThermalPrinterPlatform.scanBluetoothDevices();
+  }
+
+  // Stop Bluetooth scanning
+  static Future<bool> stopBluetoothScan() {
+    return ThermalPrinterPlatform.stopBluetoothScan();
   }
 
   static Future<bool> connectBluetooth(String address) {
@@ -23,6 +27,11 @@ class FlutterThermalPrinterPlus {
   // WiFi operations
   static Future<List<PrinterInfo>> scanWifiPrinters() {
     return ThermalPrinterPlatform.scanWifiPrinters();
+  }
+
+  // Stop WiFi scanning
+  static Future<bool> stopWifiScan() {
+    return ThermalPrinterPlatform.stopWifiScan();
   }
 
   static Future<bool> connectWifi(String ip, int port) {
@@ -49,5 +58,15 @@ class FlutterThermalPrinterPlus {
 
   static Future<bool> isConnected() {
     return ThermalPrinterPlatform.isConnected();
+  }
+
+  // Scanning status and control
+  static Future<bool> isScanning() {
+    return ThermalPrinterPlatform.isScanning();
+  }
+
+  // Stop all scanning
+  static Future<bool> stopAllScanning() {
+    return ThermalPrinterPlatform.stopAllScanning();
   }
 }
