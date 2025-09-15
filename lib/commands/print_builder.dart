@@ -92,7 +92,7 @@ class PrintBuilder {
       String column = columns[i];
 
       if (column.length > colWidth) {
-        column = column.substring(0, colWidth - 2) + '..';
+        column = '${column.substring(0, colWidth - 2)}..';
       } else {
         column = column.padRight(colWidth);
       }
@@ -334,7 +334,7 @@ class PrintBuilder {
       String column = columns[i];
 
       if (column.length > colWidth) {
-        column = column.substring(0, colWidth - 2) + '..';
+        column = '${column.substring(0, colWidth - 2)}..';
       }
 
       // Right-align the last column, others as specified

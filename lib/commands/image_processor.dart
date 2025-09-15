@@ -44,8 +44,6 @@ class ImageProcessor {
       return image;
     }
 
-    // Calculate new height maintaining aspect ratio
-    int newHeight = (image.height * maxWidth / image.width).round();
 
     // This is a placeholder - actual resizing would use image processing libraries
     return image;
