@@ -540,7 +540,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
 
     // Test 4: Advanced row with wrapping control
       ..text('4. Advanced Multi-line Control:', bold: true)
-      ..wrapRow(
+      ..row(
         ['Long Product Name That Will Wrap Product Name That Will Wrap', '34','Short\nMulti\nLine', '\$15.99'],
         [45, 15, 20, 20],
         aligns: [ColumnAlign.left,ColumnAlign.center, ColumnAlign.center, ColumnAlign.right],
