@@ -1,4 +1,4 @@
-package com.safvan.kayakkool.flutter_thermal_printer_plus
+package com.safwan.kayakkool.flutter_thermal_printer_plus
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
@@ -17,6 +17,7 @@ class BluetoothManager(private val context: Context) {
     private var socket: BluetoothSocket? = null
     private var outputStream: OutputStream? = null
     private var isConnected = false
+    private var isCurrentlyScanning = false // NEW: Track scanning state
 
     fun scanDevices(result: Result) {
         if (bluetoothAdapter == null) {
@@ -30,10 +31,18 @@ class BluetoothManager(private val context: Context) {
         }
 
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             result.error("PERMISSION_DENIED", "Bluetooth permission denied", null)
             return
         }
+
+        // Stop any existing scan first
+        if (isCurrentlyScanning) {
+            stopScanInternal()
+        }
+
+        isCurrentlyScanning = true // NEW: Set scanning flag
 
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
         val devices = mutableListOf<Map<String, Any>>()
@@ -48,12 +57,53 @@ class BluetoothManager(private val context: Context) {
             devices.add(deviceMap)
         }
 
+        // AUTO STOP: Stop scanning after 10 seconds to prevent battery drain
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            stopScanInternal()
+        }, 10000) // 10 seconds
+
+        isCurrentlyScanning = false // Reset flag after returning results
         result.success(devices)
     }
 
+    // NEW: Stop scanning method
+    fun stopScan(result: Result) {
+        try {
+            stopScanInternal()
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("STOP_SCAN_FAILED", "Failed to stop scan: ${e.message}", null)
+        }
+    }
+
+    // NEW: Internal stop scan method
+    fun stopScanInternal() {
+        if (isCurrentlyScanning) {
+            try {
+                // Stop any ongoing Bluetooth discovery
+                bluetoothAdapter?.cancelDiscovery()
+                isCurrentlyScanning = false
+            } catch (e: Exception) {
+                // Log error but don't crash
+                android.util.Log.e("BluetoothManager", "Error stopping scan: ${e.message}")
+            }
+        }
+    }
+
+    // NEW: Check if scanning
+    fun isScanning(): Boolean {
+        return isCurrentlyScanning
+    }
+
     fun connect(address: String, result: Result) {
+        // Stop scanning before connecting
+        if (isCurrentlyScanning) {
+            stopScanInternal()
+        }
+
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             result.error("PERMISSION_DENIED", "Bluetooth permission denied", null)
             return
         }
@@ -102,6 +152,9 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun cleanup() {
+        // Stop scanning first
+        stopScanInternal()
+
         try {
             socket?.close()
         } catch (e: IOException) {

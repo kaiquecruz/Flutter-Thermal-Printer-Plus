@@ -1,4 +1,4 @@
-package com.safvan.kayakkool.flutter_thermal_printer_plus
+package com.safwan.kayakkool.flutter_thermal_printer_plus
 
 import android.content.Context
 import android.hardware.usb.UsbConstants

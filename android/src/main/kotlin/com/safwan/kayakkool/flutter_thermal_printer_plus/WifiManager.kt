@@ -1,4 +1,4 @@
-package com.safvan.kayakkool.flutter_thermal_printer_plus
+package com.safwan.kayakkool.flutter_thermal_printer_plus
 
 import android.content.Context
 import io.flutter.plugin.common.MethodChannel.Result
@@ -11,16 +11,73 @@ class WifiManager(private val context: Context) {
     private var socket: Socket? = null
     private var outputStream: OutputStream? = null
     private var isConnected = false
+    private var isCurrentlyScanning = false //Track scanning state
+    private var scanJob: Job? = null // Track scan job
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun scanPrinters(result: Result) {
+        // Stop any existing scan
+        if (isCurrentlyScanning) {
+            stopScanInternal()
+        }
+
+        isCurrentlyScanning = true
+
         // For WiFi printers, manual IP configuration is typically used
         // This could be enhanced with network discovery
-        val printers = listOf<Map<String, Any>>()
-        result.success(printers)
+        scanJob = scope.launch {
+            try {
+                // Simulate network discovery or return empty list
+                // In real implementation, you might scan common printer ports
+                val printers = listOf<Map<String, Any>>()
+
+                // AUTO STOP: Complete scan after timeout
+                delay(5000) // 5 seconds for WiFi scan
+
+                withContext(Dispatchers.Main) {
+                    isCurrentlyScanning = false
+                    result.success(printers)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    isCurrentlyScanning = false
+                    result.error("SCAN_FAILED", "WiFi scan failed: ${e.message}", null)
+                }
+            }
+        }
+    }
+
+    // Stop scanning method
+    fun stopScan(result: Result) {
+        try {
+            stopScanInternal()
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("STOP_SCAN_FAILED", "Failed to stop WiFi scan: ${e.message}", null)
+        }
+    }
+
+
+    // Internal stop scan method
+    fun stopScanInternal() {
+        if (isCurrentlyScanning) {
+            scanJob?.cancel()
+            isCurrentlyScanning = false
+        }
+    }
+
+    // Check if scanning
+    fun isScanning(): Boolean {
+        return isCurrentlyScanning
     }
 
     fun connect(ip: String, port: Int, result: Result) {
+
+        // Stop scanning before connecting
+        if (isCurrentlyScanning) {
+            stopScanInternal()
+        }
+
         scope.launch {
             try {
                 socket = Socket(ip, port)
@@ -74,6 +131,8 @@ class WifiManager(private val context: Context) {
     }
 
     fun cleanup() {
+        // Stop scanning first
+        stopScanInternal()
         try {
             socket?.close()
         } catch (e: IOException) {

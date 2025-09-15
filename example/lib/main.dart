@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_thermal_printer_plus/commands/esc_pos_commands.dart';
 import 'package:flutter_thermal_printer_plus/commands/print_builder.dart';
@@ -34,6 +35,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
   // Add this to track if the widget is still active
   bool _isWidgetActive = true;
 
+  bool isScanning = false; //Track scanning state
+  String scanStatus = 'Not scanning'; //  Scan status display
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +47,19 @@ class _PrinterScreenState extends State<PrinterScreen> {
         checkConnectionStatus();
       }
     });
+  }
+
+  //  Check scanning status
+  Future<void> checkScanningStatus() async {
+    try {
+      final scanning = await FlutterThermalPrinterPlus.isScanning();
+      setState(() {
+        isScanning = scanning;
+        scanStatus = scanning ? 'Scanning...' : 'Not scanning';
+      });
+    } catch (e) {
+      print('Error checking scanning status: $e');
+    }
   }
 
   @override
@@ -96,9 +113,21 @@ class _PrinterScreenState extends State<PrinterScreen> {
       appBar: AppBar(
         title: Text('Flutter Thermal Printer Plus Example'),
         backgroundColor: Colors.blue,
+        actions: [
+          // NEW: Stop scanning button
+          if (isScanning)
+            IconButton(
+              onPressed: stopAllScanning,
+              icon: Icon(Icons.stop_circle),
+              tooltip: 'Stop Scanning',
+            ),
+        ],
       ),
       body: Column(
         children: [
+
+
+
           // Connection status
           Container(
             width: double.infinity,
@@ -271,7 +300,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                   ),
                   SizedBox(height: 10),
                   ElevatedButton.icon(
-                    onPressed: testAdvancedPrint,
+                    onPressed: exampleReceiptWithCustomAlignment,
+                    // onPressed: exampleTableWithMixedAlignment,
+                    // onPressed: exampleInventoryReport,
                     icon: Icon(Icons.print),
                     label: Text('Advanced Receipt Test'),
                     style: ElevatedButton.styleFrom(
@@ -291,9 +322,11 @@ class _PrinterScreenState extends State<PrinterScreen> {
 
   Future<void> scanBluetooth() async {
     try {
-      safeShowMessage('Requesting permissions...');
-
-      // Request permissions first
+      setState(() {
+        isScanning = true;
+        scanStatus = 'Scanning Bluetooth devices...';
+      });
+// Request permissions first
       bool hasPermissions = await requestBluetoothPermissions();
       if (!hasPermissions) {
         safeShowError('Bluetooth permissions required. Please grant permissions and try again.');
@@ -303,28 +336,62 @@ class _PrinterScreenState extends State<PrinterScreen> {
       safeShowMessage('Scanning for Bluetooth devices...');
       final devices = await FlutterThermalPrinterPlus.scanBluetoothDevices();
 
-      if (_isWidgetActive && mounted) {
-        setState(() {
-          printers = devices;
-        });
-        safeShowMessage('Found ${devices.length} Bluetooth devices');
-      }
+      setState(() {
+        printers = devices;
+        isScanning = false;
+        scanStatus = 'Bluetooth scan completed';
+      });
+
+      safeShowMessage('Found ${devices.length} Bluetooth devices');
+
+      // Reset scan status after 3 seconds
+      Future.delayed(Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            scanStatus = 'Not scanning';
+          });
+        }
+      });
     } catch (e) {
+      setState(() {
+        isScanning = false;
+        scanStatus = 'Bluetooth scan failed';
+      });
       safeShowError('Bluetooth scan failed: $e');
     }
   }
 
   Future<void> scanWifi() async {
     try {
+      setState(() {
+        isScanning = true;
+        scanStatus = 'Scanning WiFi printers...';
+      });
+
       safeShowMessage('Scanning for WiFi printers...');
       final devices = await FlutterThermalPrinterPlus.scanWifiPrinters();
-      if (_isWidgetActive && mounted) {
-        setState(() {
-          printers = devices;
-        });
-        safeShowMessage('Found ${devices.length} WiFi printers');
-      }
+
+      setState(() {
+        printers = devices;
+        isScanning = false;
+        scanStatus = 'WiFi scan completed';
+      });
+
+      safeShowMessage('Found ${devices.length} WiFi printers');
+
+      // Reset scan status after 3 seconds
+      Future.delayed(Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            scanStatus = 'Not scanning';
+          });
+        }
+      });
     } catch (e) {
+      setState(() {
+        isScanning = false;
+        scanStatus = 'WiFi scan failed';
+      });
       safeShowError('WiFi scan failed: $e');
     }
   }
@@ -333,14 +400,46 @@ class _PrinterScreenState extends State<PrinterScreen> {
     try {
       safeShowMessage('Getting USB devices...');
       final devices = await FlutterThermalPrinterPlus.getUsbDevices();
-      if (_isWidgetActive && mounted) {
-        setState(() {
-          printers = devices;
-        });
-        safeShowMessage('Found ${devices.length} USB devices');
-      }
+      setState(() {
+        printers = devices;
+      });
+      safeShowMessage('Found ${devices.length} USB devices');
     } catch (e) {
       safeShowError('USB scan failed: $e');
+    }
+  }
+
+  // NEW: Stop all scanning method
+  Future<void> stopAllScanning() async {
+    try {
+      safeShowMessage('Stopping all scanning...');
+      final stopped = await FlutterThermalPrinterPlus.stopAllScanning();
+
+      setState(() {
+        isScanning = false;
+        scanStatus = stopped ? 'Scanning stopped' : 'Failed to stop scanning';
+      });
+
+      if (stopped) {
+        safeShowMessage('All scanning stopped successfully');
+      } else {
+        safeShowError('Failed to stop some scanning operations');
+      }
+
+      // Reset scan status after 3 seconds
+      Future.delayed(Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            scanStatus = 'Not scanning';
+          });
+        }
+      });
+    } catch (e) {
+      setState(() {
+        isScanning = false;
+        scanStatus = 'Stop scanning failed';
+      });
+      safeShowError('Stop scanning failed: $e');
     }
   }
 
@@ -373,6 +472,216 @@ class _PrinterScreenState extends State<PrinterScreen> {
       }
     } catch (e) {
       safeShowError('Connection failed: $e');
+    }
+  }
+
+  Future<void> exampleReceiptWithCustomAlignment() async{
+    final builder = PrintBuilder(PaperSize.mm110)
+
+    // Title
+      ..text(
+        'MULTI-LINE ROW TEST',
+        align: AlignPos.center,
+        fontSize: FontSize.big,
+        bold: true,
+      )
+      ..feed(1)
+      ..line()
+
+    // Test 1: Basic multi-line in first column
+      ..text('1. Multi-line Product Names:', bold: true)
+      ..row(
+        ['Product', 'Qty', 'Price', 'Total'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..line(char: '-')
+      ..row(
+        ['Coffee Premium\nWith Extra Foam\nFair Trade', '2', '\$4.50', '\$9.00'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..row(
+        ['Tea Green\nOrganic', '1', '\$3.25', '\$3.25'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..feed(1)
+
+    // Test 2: Multi-line in multiple columns
+      ..text('2. Multi-line in Multiple Columns:', bold: true)
+      ..row(
+        ['Description', 'Details', 'Price'],
+        [40, 35, 25],
+        aligns: [ColumnAlign.left, ColumnAlign.left, ColumnAlign.right],
+      )
+      ..line(char: '-')
+      ..row(
+        ['Sandwich\nTurkey Club', 'Fresh bread\nLettuce & tomato\nExtra mayo', '\$12.99'],
+        [40, 35, 25],
+        aligns: [ColumnAlign.left, ColumnAlign.left, ColumnAlign.right],
+      )
+      ..feed(1)
+
+    // Test 3: Different alignments with multi-line
+      ..text('3. Multi-line with Different Alignments:', bold: true)
+      ..row(
+        ['Item (Left)', 'Status (Center)', 'Amount (Right)'],
+        [33, 34, 33],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right],
+      )
+      ..line(char: '-')
+      ..row(
+        ['Premium Service Package Product Name That Will Wrap', 'Active\n&\nRunning', '\$299.99 permonth'],
+        [33, 34, 33],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right],
+      )
+      ..feed(1)
+
+    // Test 4: Advanced row with wrapping control
+      ..text('4. Advanced Multi-line Control:', bold: true)
+      ..wrapRow(
+        ['Long Product Name That Will Wrap Product Name That Will Wrap', '34','Short\nMulti\nLine', '\$15.99'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left,ColumnAlign.center, ColumnAlign.center, ColumnAlign.right],
+        wrapColumns: [false, false,false, false], // Only first column wraps
+      )
+      ..feed(1)
+
+    // Test 5: Receipt with multi-line items
+      ..text('5. Real Receipt Example:', bold: true)
+      ..line(char: '=')
+      ..row(
+        ['Item', 'Qty', 'Price', 'Total'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..line()
+      ..row(
+        ['Americano\nDouble Shot\nExtra Hot', '2', '\$3.50', '\$7.00'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..row(
+        ['Croissant\nButter & Jam', '1', '\$4.25', '\$4.25'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..row(
+        ['Muffin Blueberry\nFresh Baked\nGluten Free', '1', '\$5.99', '\$5.99'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..line()
+      ..row(
+        ['', '', 'TOTAL:', '\$17.24'],
+        [45, 15, 20, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right],
+        fontSize: FontSize.big,
+      )
+      ..line(char: '=')
+
+      ..feed(3)
+      ..cut();
+
+    final success = await FlutterThermalPrinterPlus.print(builder);
+    if (_isWidgetActive && mounted) {
+      if (success) {
+        safeShowMessage('test print completed!');
+      } else {
+        safeShowError('Print failed');
+      }
+    }
+  }
+
+// ========== MORE EXAMPLES ==========
+
+  Future<void> exampleTableWithMixedAlignment() async{
+    final builder = PrintBuilder(PaperSize.mm110) // Using 110mm for more space
+
+    // Centered header
+      ..text('EMPLOYEE TIMESHEET', align: AlignPos.center, fontSize: FontSize.big, bold: true)
+      ..feed(1)
+      ..line()
+
+    // Table header with mixed alignment
+      ..row(
+        ['Employee Name', 'ID', 'Hours', 'Rate', 'Total'],
+        [35, 15, 15, 15, 20],
+        aligns: [
+          ColumnAlign.left,    // Name - left aligned
+          ColumnAlign.center,  // ID - centered
+          ColumnAlign.right,   // Hours - right aligned
+          ColumnAlign.right,   // Rate - right aligned
+          ColumnAlign.right,   // Total - right aligned
+        ],
+        fontSize: FontSize.normal,
+      )
+      ..line()
+
+    // Data rows
+      ..row(
+        ['John Smith', 'E001', '40.0', '\$25.00', '\$1,000.00'],
+        [35, 15, 15, 15, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right, ColumnAlign.right],
+      )
+      ..row(
+        ['Jane Doe', 'E002', '35.5', '\$30.00', '\$1,065.00'],
+        [35, 15, 15, 15, 20],
+        aligns: [ColumnAlign.left, ColumnAlign.center, ColumnAlign.right, ColumnAlign.right, ColumnAlign.right],
+      )
+
+      ..line()
+      ..cut();
+    final success = await FlutterThermalPrinterPlus.print(builder);
+
+  }
+
+  Future<void> exampleInventoryReport()async {
+    final builder = PrintBuilder(PaperSize.mm110)
+
+    // Header
+      ..text('INVENTORY REPORT', align: AlignPos.center, fontSize: FontSize.big, bold: true)
+      ..text('Generated: ${DateTime.now().toString().substring(0, 16)}', align: AlignPos.center)
+      ..feed(1)
+      ..line()
+
+
+    // Column headers with specific alignment
+      ..row(
+        ['Product', 'Stock', 'Status'],
+        [50, 25, 25],
+        aligns: [ColumnAlign.left, ColumnAlign.right, ColumnAlign.center],
+        fontSize: FontSize.normal,
+      )
+      ..line()
+
+    // Data with status centered, stock right-aligned
+      ..row(
+        ['Coffee Beans Premium', '150', 'OK'],
+        [50, 25, 25],
+        aligns: [ColumnAlign.left, ColumnAlign.right, ColumnAlign.center],
+      )
+      ..row(
+        ['Paper Cups Large', '25', 'LOW'],
+        [50, 25, 25],
+        aligns: [ColumnAlign.left, ColumnAlign.right, ColumnAlign.center],
+      )
+      ..row(
+        ['Sugar Packets', '500', 'OK'],
+        [50, 25, 25],
+        aligns: [ColumnAlign.left, ColumnAlign.right, ColumnAlign.center],
+      )
+
+      ..feed(2)
+      ..cut();
+    final success = await FlutterThermalPrinterPlus.print(builder);
+    if (_isWidgetActive && mounted) {
+      if (success) {
+        safeShowMessage('test print completed!');
+      } else {
+        safeShowError('Print failed');
+      }
     }
   }
 
@@ -453,88 +762,12 @@ class _PrinterScreenState extends State<PrinterScreen> {
     }
   }
 
-  Future<void> testAdvancedPrint() async {
-    try {
-      safeShowMessage('Printing advanced receipt...');
-
-      final builder = PrintBuilder(PaperSize.mm80) // Default to 80mm
-        ..text(
-          'RESTAURANT NAME',
-          align: AlignPos.center,
-          fontSize: FontSize.big,
-          bold: true,
-        )
-        ..text(
-          '123 Main Street',
-          align: AlignPos.center,
-        )
-        ..text(
-          'Phone: (555) 123-4567',
-          align: AlignPos.center,
-        )
-        ..feed(1)
-        ..line()
-        ..text(
-          'RECEIPT #12345',
-          align: AlignPos.center,
-          bold: true,
-        )
-        ..text(
-          'Date: ${DateTime.now().toString().substring(0, 19)}',
-          align: AlignPos.center,
-        )
-        ..line()
-        ..row(['Item', 'Qty', 'Price', 'Total'], [40, 15, 20, 25])
-        ..line()
-        ..row(['Burger Deluxe', '2', '\$12.99', '\$25.98'], [40, 15, 20, 25])
-        ..row(['French Fries', '2', '\$4.99', '\$9.98'], [40, 15, 20, 25])
-        ..row(['Soft Drink', '2', '\$2.99', '\$5.98'], [40, 15, 20, 25])
-        ..line()
-        ..text(
-          'Subtotal: \$41.94',
-          align: AlignPos.right,
-        )
-        ..text(
-          'Tax (8.5%): \$3.56',
-          align: AlignPos.right,
-        )
-        ..text(
-          'TOTAL: \$45.50',
-          align: AlignPos.right,
-          bold: true,
-          fontSize: FontSize.big,
-        )
-        ..feed(2)
-        ..line(char: '=')
-        ..text(
-          'Thank you for your visit!',
-          align: AlignPos.center,
-          bold: true,
-        )
-        ..text(
-          'Please come again!',
-          align: AlignPos.center,
-        )
-        ..feed(3)
-        ..cut();
-
-      final success = await FlutterThermalPrinterPlus.print(builder);
-
-      if (_isWidgetActive && mounted) {
-        if (success) {
-          safeShowMessage('Advanced receipt printed successfully!');
-        } else {
-          safeShowError('Print failed');
-        }
-      }
-    } catch (e) {
-      safeShowError('Print error: $e');
-    }
-  }
 
   // Safe methods that check widget state before showing messages
   void safeShowMessage(String message) {
-    print('Info: $message'); // Always log to console
+    if (kDebugMode) {
+      print('Info: $message');
+    } // Always log to console
 
     if (_isWidgetActive && mounted) {
       try {
@@ -547,13 +780,17 @@ class _PrinterScreenState extends State<PrinterScreen> {
           ),
         );
       } catch (e) {
-        print('Failed to show message: $e');
+        if (kDebugMode) {
+          print('Failed to show message: $e');
+        }
       }
     }
   }
 
   void safeShowError(String error) {
-    print('Error: $error'); // Always log to console
+    if (kDebugMode) {
+      print('Error: $error');
+    } // Always log to console
 
     if (_isWidgetActive && mounted) {
       try {
@@ -566,7 +803,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
           ),
         );
       } catch (e) {
-        print('Failed to show error: $e');
+        if (kDebugMode) {
+          print('Failed to show error: $e');
+        }
       }
     }
   }
