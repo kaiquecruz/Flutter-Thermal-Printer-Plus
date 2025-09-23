@@ -1,6 +1,6 @@
 name: flutter_thermal_printer_plus
 description: "A comprehensive thermal printer plugin supporting 58mm, 72mm, 80mm, and 110mm paper sizes with Bluetooth, WiFi, and USB connectivity."
-version: 0.0.3
+version: 0.0.4
 homepage: https://github.com/Safwankayakkool/Flutter-Thermal-Printer-Plus
 
 environment:
