@@ -148,7 +148,7 @@ class BluetoothManager(private val context: Context) {
     }
 
     fun isConnected(): Boolean {
-        return isConnected && outputStream != null
+        return isConnected && socket?.isConnected == true && bluetoothAdapter?.isEnabled == true
     }
 
     fun cleanup() {
