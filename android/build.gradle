@@ -20,6 +20,7 @@ allprojects {
 }
 
 apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
 
 android {
     namespace = "com.safwan.kayakkool.flutter_thermal_printer_plus"
@@ -29,10 +30,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
     }
 
     sourceSets {
@@ -59,5 +56,11 @@ android {
                showStandardStreams = true
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
     }
 }
